@@ -53,7 +53,8 @@
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
-
+extern volatile uint32_t g_ticks;
+extern volatile uint32_t g_cyc;
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
@@ -184,7 +185,8 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+  g_ticks++;
+  g_cyc = DWT->CYCCNT;
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */

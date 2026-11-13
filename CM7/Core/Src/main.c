@@ -56,6 +56,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+volatile uint32_t g_ticks = 0;
+volatile uint32_t g_cyc = 0;
 FDCAN_TxHeaderTypeDef TxHeader;
 uint8_t TxData[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
 /* USER CODE END PV */
@@ -108,16 +110,12 @@ int main(void)
   /* USER CODE END Init */
 
   /* Configure the system clock */
-  SystemClock_Config();
+  // SystemClock_Config();
 
   // Write the flag to SRAM3 for the M4 to find
   *(volatile uint32_t*)0x30040000 = 0xC0DEB007; 
   // 2. Flush the M7 Data Cache so it pushes the value to physical memory
   SCB_CleanDCache_by_Addr((uint32_t*)0x30040000, 4);
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART1_UART_Init();
 
 /* USER CODE BEGIN Boot_Mode_Sequence_2 */
 #if defined(DUAL_CORE_BOOT_SYNC_SEQUENCE)
@@ -145,7 +143,7 @@ Error_Handler();
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART1_UART_Init();
+  // MX_USART1_UART_Init();
   MX_FDCAN1_Init();
 
   /* USER CODE BEGIN 2 */
@@ -158,8 +156,15 @@ Error_Handler();
   ------------------------------------------------------- */
 
   // Print success message to show M7 wrote the flag!
-  char m7_msg[] = "M7: SRAM3 Flag Written. Waking M4...\r\n";
-  HAL_UART_Transmit(&huart1, (uint8_t *)m7_msg, 38, HAL_MAX_DELAY);
+  // char m7_msg[] = "M7: SRAM3 Flag Written. Waking M4...\r\n";
+  // HAL_UART_Transmit(&huart1, (uint8_t *)m7_msg, 38, HAL_MAX_DELAY);
+
+  // Set SysTick to tick 10,000 times per second
+  SysTick_Config(SystemCoreClock / 10000); 
+
+  // Enable the DWT cycle counter
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CTRL |= 1;
   
   /* USER CODE END 2 */
 

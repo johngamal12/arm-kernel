@@ -7,14 +7,16 @@ $m7_elf ?= @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/CM7/build/Dua
 $m4_elf ?= @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/CM4/build/DualCor_Test_CM4.elf
 
 mach create "stm32h747"
-machine LoadPlatformDescription $repl
+machine LoadPlatformDescription @clocks.repl
+sysbus.cpu PerformanceInMips 129
+sysbus.cpu1 PerformanceInMips 129
 
 # Run the CPUs one after the other so shared-memory runs are repeatable.
 machine SetSerialExecution True
 
 # Save the whole log to a file in the shared folder (the console still shows it).
 # If you ever need help, this is the file to send.
-logFile @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/renode_amp.log
+# logFile @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/renode_amp.log
 
 # ---- Load one ELF per core ----
 # Same syntax as your working script. On a NEWER Renode that has the extra
@@ -71,4 +73,4 @@ macro m4_state
 showAnalyzer sysbus.usart1
 showAnalyzer sysbus.usart2
 
-start
+# start

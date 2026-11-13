@@ -1,0 +1,2 @@
+sysbus.dwt:
+    rcc: sysbus.rcc
