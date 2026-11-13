@@ -1,0 +1,6 @@
+clear
+include @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/platform/stm32h747_amp.resc
+emulation CreateCANHub "canHub"
+machine CreateSocketCANBridge "vcan0" "vcan0"
+connector Connect sysbus.fdcan1 canHub
+connector Connect vcan0 canHub

@@ -1,0 +1,40 @@
+// STM32H747 AMP: Cortex-M7 (cpu) + Cortex-M4 (cpu1) in one Renode machine.
+//
+// Overlay on Renode's stock description. The stock chain is
+//   stm32h747.repl -> stm32h7.repl
+// and it already provides everything below, so nothing is added for them:
+//   flashBank1 0x08000000 (1 MB)   flashBank2 0x08100000
+//   sram1 0x30000000, sram2 0x30020000, sram3 0x30040000, sram4 0x38000000
+//   axiSram 0x24000000, dtcm 0x20000000, itcm 0x00000000
+//   usart1 0x40011000, usart2 0x40004400
+// All of these are global, so both cores see them.
+// Path is relative to the Renode install directory.
+using "platforms/cpus/stm32h747.repl"
+
+// 1. Give the M7 a private NVIC. The stock NVIC is registered for all cores at
+//    0xE000E000 and would shadow the M4's own one.
+nvic: @ sysbus new Bus.BusPointRegistration { address: 0xE000E000; cpu: cpu }
+
+// 2. The Cortex-M4 and its own NVIC (the NVIC also holds SysTick and the SCB
+//    registers such as VTOR and CFSR, so each core needs its own).
+nvic1: IRQControllers.NVIC @ sysbus new Bus.BusPointRegistration { address: 0xE000E000; cpu: cpu1 }
+    priorityMask: 0xF0
+    systickFrequency: 240000000
+    IRQ -> cpu1@0
+
+cpu1: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    cpuId: 1
+    nvic: nvic1
+
+// Not halted: the M4 firmware waits for the M7 flag at 0x30040000 by itself.
+// Its SP/PC are set in the .resc, after the ELF is loaded.
+//
+// Peripheral interrupts in the stock file go to the M7's NVIC only. To give the M4 one,
+// add a second destination, for example:
+//   usart2:
+//       IRQ -> nvic1@38
+
+// 3. Map the 288 KB D2 SRAM alias (0x10000000 - 0x10047FFF) required by the M4 linker script
+sramD2Alias: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x48000

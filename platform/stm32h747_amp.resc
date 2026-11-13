@@ -1,0 +1,74 @@
+:name: STM32H747 AMP (Cortex-M7 + Cortex-M4)
+:description: Boots both cores. The M4 start state (SP, PC) is forced from the M4's own vector table.
+
+# ---- Paths (absolute, as required in your VM) ----
+$repl   ?= @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/platform/stm32h747_amp.repl
+$m7_elf ?= @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/CM7/build/DualCor_Test_CM7.elf
+$m4_elf ?= @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/CM4/build/DualCor_Test_CM4.elf
+
+mach create "stm32h747"
+machine LoadPlatformDescription $repl
+
+# Run the CPUs one after the other so shared-memory runs are repeatable.
+machine SetSerialExecution True
+
+# Save the whole log to a file in the shared folder (the console still shows it).
+# If you ever need help, this is the file to send.
+logFile @/home/john-gamal/STM32_Share/.stm32cubemx/DualCor_Test/renode_amp.log
+
+# ---- Load one ELF per core ----
+# Same syntax as your working script. On a NEWER Renode that has the extra
+# allowLoadsOnlyToMemory argument, use:  false true sysbus.cpu   (and ... sysbus.cpu1)
+# Note: for a Cortex-M, LoadELF only copies the program into memory. It does NOT set SP or PC.
+sysbus LoadELF $m7_elf false sysbus.cpu
+sysbus LoadELF $m4_elf false sysbus.cpu1
+
+# ---- M7: Renode reads SP/PC from this vector table when the core first runs ----
+sysbus.cpu VectorTableOffset 0x08000000
+
+# ---- M4: point it at ITS vector table, then force SP and PC from that table ----
+# Writing PC marks it as initialised, so Renode will not re-read it from address 0
+# (address 0 is the M7's ITCM in this platform, which is all zeros).
+sysbus.cpu1 VectorTableOffset 0x08100000
+sysbus.cpu1 SP `sysbus ReadDoubleWord 0x08100000`
+sysbus.cpu1 PC `sysbus ReadDoubleWord 0x08100004`
+
+# If one of the two backtick lines above gives an error, replace them with plain numbers.
+# Get the numbers on the VM with:
+#   arm-none-eabi-nm DualCor_Test_CM4.elf | grep -E " (_estack|Reset_Handler)$"
+# then use:
+#   sysbus.cpu1 SP 0x<value of _estack>
+#   sysbus.cpu1 PC 0x<value of Reset_Handler>
+
+# ---- What the M4 is about to start with (read these in the console) ----
+echo "=== M4 vector table: word 0 = initial SP, word 1 = reset PC (must be ODD) ==="
+sysbus ReadDoubleWord 0x08100000
+sysbus ReadDoubleWord 0x08100004
+echo "=== M4 registers as set now: SP and PC must equal the two words above ==="
+sysbus.cpu1 SP
+sysbus.cpu1 PC
+sysbus.cpu1 VectorTableOffset
+
+# Print every function the M4 enters (shows exactly where it goes). Comment out once it works,
+# because it is noisy once the M4 starts printing through HAL functions.
+# sysbus.cpu1 LogFunctionNames true
+
+# ---- Inspect the M4 after a fault: type  pause  then  runMacro $m4_state ----
+macro m4_state
+"""
+    echo "--- M4 state ---"
+    sysbus.cpu1 PC
+    sysbus.cpu1 SP
+    echo "VTOR, CFSR (bit 17 = INVSTATE), HFSR as the M4 sees them:"
+    sysbus ReadDoubleWord 0xE000ED08 sysbus.cpu1
+    sysbus ReadDoubleWord 0xE000ED28 sysbus.cpu1
+    sysbus ReadDoubleWord 0xE000ED2C sysbus.cpu1
+    echo "Shared flag at 0x30040000 (0xC0DEB007 means the M7 wrote it):"
+    sysbus ReadDoubleWord 0x30040000 sysbus.cpu1
+"""
+
+# ---- Terminals: usart1 = M7, usart2 = M4 ----
+showAnalyzer sysbus.usart1
+showAnalyzer sysbus.usart2
+
+start
